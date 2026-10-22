@@ -1,0 +1,23 @@
+'use client'
+
+import Link from 'next/link'
+import { FormEvent, useState } from 'react'
+import { signIn } from 'next-auth/react'
+import { getCaptchaToken, CaptchaNotice } from './captcha-notice'
+
+const counties = ['Nairobi', 'Kiambu', 'Kajiado', 'Nakuru', 'Mombasa', 'Kisumu', 'Uasin Gishu', 'Machakos', 'Other']
+
+export function LoginForm() {
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setMessage(''); const form = new FormData(event.currentTarget); const result = await signIn('credentials', { email: form.get('email'), password: form.get('password'), redirect: false, callbackUrl: '/dashboard' }); setBusy(false); if (result?.error) setMessage('We could not sign you in. Check your email and password.'); else window.location.assign(result?.url || '/dashboard') }
+  return <form onSubmit={submit} className="card p-5 sm:p-7"><h1 className="text-2xl font-black text-dark sm:text-3xl">Welcome back</h1><p className="mt-2 text-sm">Sign in to manage your business deliveries.</p>{message && <p role="alert" className="mt-4 border-l-4 border-primary bg-[#fff2ed] p-3 text-sm text-dark">{message}</p>}<label className="field-label mt-6">Business email<input name="email" required type="email" autoComplete="email" className="field mt-1" placeholder="you@business.co.ke" /></label><label className="field-label mt-4">Password<input name="password" required minLength={8} type="password" autoComplete="current-password" className="field mt-1" placeholder="At least 8 characters" /></label><button disabled={busy} className="btn-primary mt-6 w-full disabled:opacity-60">{busy ? 'Signing in...' : 'Log in'}</button><div className="my-5 flex items-center gap-3 text-xs"><span className="h-px flex-1 bg-[#e5e5ea]"/>OR<span className="h-px flex-1 bg-[#e5e5ea]"/></div><button type="button" onClick={() => signIn('google', { callbackUrl: '/dashboard' })} className="btn-outline w-full">Continue with Google</button><p className="mt-5 text-center text-sm">New to Gideon Freight? <Link href="/register" className="font-bold text-primary underline">Create your SME account</Link></p></form>
+}
+
+export function RegisterForm() {
+  const [message, setMessage] = useState('')
+  const [needsCheck, setNeedsCheck] = useState(false)
+  const [busy, setBusy] = useState(false)
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setMessage(''); const form = new FormData(event.currentTarget); const data = Object.fromEntries(form.entries()); const captchaToken = await getCaptchaToken('register'); const response = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, captchaToken }) }); const payload = await response.json(); setBusy(false); if (!response.ok) { setNeedsCheck(payload.requireV2 === true); setMessage(payload.error || 'We could not create the account.'); return } setMessage('Account created. Redirecting you to sign in.'); window.setTimeout(() => window.location.assign('/login'), 900) }
+  return <form onSubmit={submit} className="card p-5 sm:p-7"><h1 className="text-2xl font-black text-dark sm:text-3xl">Build a more reliable delivery operation</h1><p className="mt-2 text-sm">Create your Gideon Freight SME account.</p>{message && <p role="alert" className="mt-4 border-l-4 border-primary bg-[#fff2ed] p-3 text-sm text-dark">{message}</p>}<CaptchaNotice required={needsCheck}/><div className="mt-6 grid gap-4 sm:grid-cols-2"><label className="field-label sm:col-span-2">Business name<input name="businessName" required className="field mt-1" placeholder="Your business name" /></label><label className="field-label">Business email<input name="email" type="email" required className="field mt-1" placeholder="you@business.co.ke" /></label><label className="field-label">Phone number<input name="phone" required className="field mt-1" placeholder="0712 345 678" /></label><label className="field-label">County<select name="county" required defaultValue="" className="field mt-1"><option value="" disabled>Select county</option>{counties.map((county) => <option key={county}>{county}</option>)}</select></label><label className="field-label">Password<input name="password" required minLength={8} type="password" className="field mt-1" placeholder="At least 8 characters" /></label></div><button disabled={busy} className="btn-primary mt-6 w-full disabled:opacity-60">{busy ? 'Creating account...' : 'Create SME account'}</button><p className="mt-5 text-center text-sm">Already registered? <Link href="/login" className="font-bold text-primary underline">Log in</Link></p></form>
+}
